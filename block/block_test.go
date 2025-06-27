@@ -1,6 +1,7 @@
 package block
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -86,5 +87,90 @@ func TestCalculateBlockHashWrongNonce(t *testing.T) {
 
 	if err == nil {
 		t.Errorf(`CalculateBlockHash() didn't return wrong nonce error %v`, err)
+	}
+}
+
+// Calls block.MineBlock with a block, checking
+// for a valid return value
+func TestMineBlock(t *testing.T) {
+	block := Block{
+		Index:    1,
+		Time:     "2025-01-01 12:00:00",
+		Data:     "Testing block",
+		PrevHash: "",
+		Hash:     "",
+		Nonce:    0,
+	}
+	hashStart := "0000"
+
+	calculatedHash, nonce, err := MineBlock(block)
+
+	if !strings.HasPrefix(calculatedHash, hashStart) || nonce < 0 || err != nil {
+		t.Errorf(`Block maining failed: %q, %q, %v`, calculatedHash, nonce, err)
+	}
+}
+
+// Calls block.MineBlock with an empty block, checking if there is error message
+func TestMineBlockEmpty(t *testing.T) {
+	block := Block{}
+
+	_, _, err := MineBlock(block)
+
+	if err == nil {
+		t.Errorf(`MineBlock() didn't return error %v`, err)
+	}
+}
+
+// Calls block.MineBlock with a wrong index, checking if there is error message
+func TestMineBlockWrongIndex(t *testing.T) {
+	block := Block{
+		Index:    -10,
+		Time:     "2025-01-01 12:00:00",
+		Data:     "Testing block",
+		PrevHash: "",
+		Hash:     "",
+		Nonce:    0,
+	}
+
+	_, _, err := MineBlock(block)
+
+	if err == nil {
+		t.Errorf(`MineBlock() didn't return wrong index error %v`, err)
+	}
+}
+
+// Calls block.MineBlock with a wrong time format, checking if there is error message
+func TestMineBlockWrongTime(t *testing.T) {
+	block := Block{
+		Index:    12,
+		Time:     "202501-01 12:00:00",
+		Data:     "Testing block",
+		PrevHash: "",
+		Hash:     "",
+		Nonce:    0,
+	}
+
+	_, _, err := MineBlock(block)
+
+	if err == nil {
+		t.Errorf(`MineBlock() didn't return wrong time error %v`, err)
+	}
+}
+
+// Calls block.MineBlock with a wrong nonce, checking if there is error message
+func TestMineBlockWrongNonce(t *testing.T) {
+	block := Block{
+		Index:    12,
+		Time:     "2025-01-01 12:00:00",
+		Data:     "Testing block",
+		PrevHash: "",
+		Hash:     "",
+		Nonce:    -10,
+	}
+
+	_, _, err := MineBlock(block)
+
+	if err == nil {
+		t.Errorf(`MineBlock() didn't return wrong nonce error %v`, err)
 	}
 }

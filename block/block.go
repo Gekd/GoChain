@@ -21,27 +21,65 @@ type Block struct {
 
 var blockchain []Block
 
-// Hashes a block using SHA-256
-func CalculateBlockHash(block Block) (string, error) {
+// Checks if block is in correct format
+// Doesn't check PrevHash and Hash
+func IsBlockValid(block Block) (bool, error) {
 	// Check if input block index is valid
 	if block.Index < 0 {
-		return "", fmt.Errorf("Input block index cannot be negative")
+		return false, fmt.Errorf("Input block index cannot be negative")
 	}
 
 	// Check if input block time is in correct format
 	_, err := time.Parse("2006-01-02 15:04:05", block.Time)
 	if err != nil {
-		return "", fmt.Errorf("Input block time is in wrong format or is empty")
+		return false, fmt.Errorf("Input block time is in wrong format or is empty")
 	}
 
 	// Check if input block data is valid
 	if block.Data == "" {
-		return "", fmt.Errorf("Block data cannot be empty")
+		return false, fmt.Errorf("Block data cannot be empty")
 	}
 
 	// Check if input block nonce is valid
 	if block.Nonce < 0 {
-		return "", fmt.Errorf("Block nonce cannot be negative")
+		return false, fmt.Errorf("Block nonce cannot be negative")
+	}
+
+	return true, nil
+
+}
+
+// Checks if block is valid and Hash is correct
+// Doesn't check previous hash
+func IsBlockCorrect(block Block) (bool, error) {
+
+	_, err := IsBlockValid(block)
+
+	if err != nil {
+		return false, fmt.Errorf("Check is block correct IsBlockValid failed: %v", err)
+	}
+
+	calculatedHash, err := CalculateBlockHash(block)
+
+	if err != nil {
+		return false, fmt.Errorf("Check is block correct CalculateBlockHash failed: %v", err)
+	}
+
+	if calculatedHash != block.Hash {
+		return false, fmt.Errorf("Check is block correct calculated hash and block hash doesn't match.")
+	}
+
+	return true, nil
+}
+
+// Hashes a block using SHA-256
+func CalculateBlockHash(block Block) (string, error) {
+
+	// Check if block is valid
+	_, err := IsBlockValid(block)
+
+	if err != nil {
+		return "", fmt.Errorf("Can't calculate block hash: %v", err)
 	}
 
 	dataToHash := strconv.Itoa(block.Index) + block.Time + block.Data + block.PrevHash + strconv.Itoa(block.Nonce)
@@ -73,8 +111,8 @@ func AddBlock(data string) {
 		Hash:     "",
 		Nonce:    0,
 	}
-
-	newBlock.Hash, newBlock.Nonce = MineBlock(newBlock)
+	// TODO: Add error handling
+	newBlock.Hash, newBlock.Nonce, _ = MineBlock(newBlock)
 	blockchain = append(blockchain, newBlock)
 
 }
@@ -83,20 +121,24 @@ func AddBlock(data string) {
 const difficulty = 4
 
 // Returns mined block hash and nonce
-func MineBlock(b Block) (string, int) {
+func MineBlock(b Block) (string, int, error) {
 	hashStart := strings.Repeat("0", difficulty)
 
 	for {
-		// TODO: Add error handling
-		hash, _ := CalculateBlockHash(b)
+		hash, err := CalculateBlockHash(b)
+
+		if err != nil {
+			return "", 0, fmt.Errorf("CalculateBlockHash() error: %v, in MineBlock()", err)
+		}
+
 		if strings.HasPrefix(hash, hashStart) {
-			return hash, b.Nonce
+			return hash, b.Nonce, nil
 		}
 		b.Nonce++
 	}
 }
 
-// Checks if block is valid
+/* Checks if block is valid
 func IsValidBlock(newBlock, prevBlock Block) bool {
 	// If previous block isn't before new block return false
 	if newBlock.Index != prevBlock.Index {
@@ -119,4 +161,4 @@ func IsValidBlock(newBlock, prevBlock Block) bool {
 	}
 
 	return true
-}
+}*/
