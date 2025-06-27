@@ -3,6 +3,7 @@ package block
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -21,17 +22,39 @@ type Block struct {
 var blockchain []Block
 
 // Hashes a block using SHA-256
-func CalculateBlockHash(block Block) string {
+func CalculateBlockHash(block Block) (string, error) {
+	// Check if input block index is valid
+	if block.Index < 0 {
+		return "", fmt.Errorf("Input block index cannot be negative")
+	}
+
+	// Check if input block time is in correct format
+	_, err := time.Parse("2006-01-02 15:04:05", block.Time)
+	if err != nil {
+		return "", fmt.Errorf("Input block time is in wrong format or is empty")
+	}
+
+	// Check if input block data is valid
+	if block.Data == "" {
+		return "", fmt.Errorf("Block data cannot be empty")
+	}
+
+	// Check if input block nonce is valid
+	if block.Nonce < 0 {
+		return "", fmt.Errorf("Block nonce cannot be negative")
+	}
+
 	dataToHash := strconv.Itoa(block.Index) + block.Time + block.Data + block.PrevHash + strconv.Itoa(block.Nonce)
 	hash := sha256.Sum256([]byte(dataToHash))
-	return hex.EncodeToString(hash[:])
+
+	return hex.EncodeToString(hash[:]), nil
 }
 
 // Create first block for the chain
 func CreateGenesisBlock() Block {
 	return Block{
 		Index:    0,
-		Time:     time.Now().String(),
+		Time:     time.Now().Format("2006-01-02 15:04:05"),
 		Data:     "First block in the chain",
 		PrevHash: "",
 		Hash:     "",
@@ -44,7 +67,7 @@ func AddBlock(data string) {
 	lastBlock := blockchain[len(blockchain)-1]
 	newBlock := Block{
 		Index:    lastBlock.Index + 1,
-		Time:     time.Now().String(),
+		Time:     time.Now().Format("2006-01-02 15:04:05"),
 		Data:     data,
 		PrevHash: lastBlock.PrevHash,
 		Hash:     "",
@@ -64,7 +87,8 @@ func MineBlock(b Block) (string, int) {
 	hashStart := strings.Repeat("0", difficulty)
 
 	for {
-		hash := CalculateBlockHash(b)
+		// TODO: Add error handling
+		hash, _ := CalculateBlockHash(b)
 		if strings.HasPrefix(hash, hashStart) {
 			return hash, b.Nonce
 		}
@@ -85,8 +109,12 @@ func IsValidBlock(newBlock, prevBlock Block) bool {
 	}
 
 	hashStart := strings.Repeat("0", difficulty)
+
+	// TODO: Add error handling
+	calculatedHash, _ := CalculateBlockHash(newBlock)
+
 	// If new block isn't correctly mined return false
-	if !strings.HasPrefix(CalculateBlockHash(newBlock), hashStart) {
+	if !strings.HasPrefix(calculatedHash, hashStart) {
 		return false
 	}
 
