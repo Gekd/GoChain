@@ -21,6 +21,10 @@ type Block struct {
 
 var blockchain []Block
 
+func GetBlockchain() []Block {
+	return blockchain
+}
+
 // Checks if block is in correct format
 // Doesn't check PrevHash and Hash
 func IsBlockValid(block Block) (bool, error) {
@@ -89,8 +93,8 @@ func CalculateBlockHash(block Block) (string, error) {
 }
 
 // Create first block for the chain
-func CreateGenesisBlock() Block {
-	return Block{
+func CreateGenesisBlock() error {
+	genesisBlock := Block{
 		Index:    0,
 		Time:     time.Now().Format("2006-01-02 15:04:05"),
 		Data:     "First block in the chain",
@@ -98,6 +102,14 @@ func CreateGenesisBlock() Block {
 		Hash:     "",
 		Nonce:    0,
 	}
+	var err error
+	genesisBlock.Hash, genesisBlock.Nonce, err = MineBlock(genesisBlock)
+
+	if err != nil {
+		return fmt.Errorf("Genesis block greation failed: %v", err)
+	}
+	blockchain = append(blockchain, genesisBlock)
+	return nil
 }
 
 // Adds mined block to the chain
@@ -107,7 +119,7 @@ func AddBlock(data string) {
 		Index:    lastBlock.Index + 1,
 		Time:     time.Now().Format("2006-01-02 15:04:05"),
 		Data:     data,
-		PrevHash: lastBlock.PrevHash,
+		PrevHash: lastBlock.Hash,
 		Hash:     "",
 		Nonce:    0,
 	}
@@ -137,28 +149,3 @@ func MineBlock(b Block) (string, int, error) {
 		b.Nonce++
 	}
 }
-
-/* Checks if block is valid
-func IsValidBlock(newBlock, prevBlock Block) bool {
-	// If previous block isn't before new block return false
-	if newBlock.Index != prevBlock.Index {
-		return false
-	}
-
-	// If previous block hash isn't stored in new block return false
-	if newBlock.PrevHash != prevBlock.Hash {
-		return false
-	}
-
-	hashStart := strings.Repeat("0", difficulty)
-
-	// TODO: Add error handling
-	calculatedHash, _ := CalculateBlockHash(newBlock)
-
-	// If new block isn't correctly mined return false
-	if !strings.HasPrefix(calculatedHash, hashStart) {
-		return false
-	}
-
-	return true
-}*/
