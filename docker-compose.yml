@@ -1,0 +1,21 @@
+services:
+  node1:
+    build:
+      context: .
+    ports:
+      - "8001:8001"
+    container_name: node1
+
+  node2:
+    build:
+      context: .
+    ports:
+      - "8002:8001"
+    container_name: node2
+
+  node3:
+    build:
+      context: .
+    ports:
+      - "8003:8001"
+    container_name: node3
