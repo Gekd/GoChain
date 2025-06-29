@@ -112,7 +112,7 @@ func CreateGenesisBlock() error {
 	return nil
 }
 
-// Adds mined block to the chain
+// Greates new block and adds to the chain
 func AddBlock(data string) {
 	lastBlock := blockchain[len(blockchain)-1]
 	newBlock := Block{
@@ -127,6 +127,19 @@ func AddBlock(data string) {
 	newBlock.Hash, newBlock.Nonce, _ = MineBlock(newBlock)
 	blockchain = append(blockchain, newBlock)
 
+}
+
+// Adds mined block to the chain
+func AddMinedBlock(data Block) error {
+	lastBlock := blockchain[len(blockchain)-1]
+
+	_, err := IsBlockCorrect(data)
+
+	if err == nil && data.PrevHash == lastBlock.Hash {
+		blockchain = append(blockchain, data)
+
+	}
+	return err
 }
 
 // Number of leading zeroes required for the hash

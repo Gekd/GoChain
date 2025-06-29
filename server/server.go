@@ -5,16 +5,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/joho/godotenv"
 	"io"
 	"log"
+	"maps"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/joho/godotenv"
 )
+
+// Holds known nodes port
+var nodes = make(map[int]struct{})
 
 // NewServer initializes the HTTP multiplexer and attaches all routes.
 // It returns an http.Handler to be passed into the server.
@@ -43,13 +51,49 @@ func decode[T any](r *http.Request) (T, error) {
 	return v, nil
 }
 
+// Checks if incoming request port is recognised or not
+// If not recognised adds to known nodes
+func checkIfNodeRecognised(logger *log.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Only need port address when working on locally
+			_, port, _ := net.SplitHostPort(r.RemoteAddr)
+
+			logger.Printf("Request port: %s", port)
+			portInt, _ := strconv.Atoi(port)
+			addNode(portInt)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// If not present, adds new node port to the known nodes
+func addNode(port int) {
+	_, ok := nodes[port]
+
+	if !ok {
+		nodes[port] = struct{}{}
+	}
+}
+
 // Returns entire blockchain as a JSON array.
 // Route: GET /chain
 func handleGetChain(logger *log.Logger) http.Handler {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			logger.Println("GET /chain")
-			_ = encode(w, r, 200, block.GetBlockchain())
+			_ = encode(w, r, http.StatusOK, block.GetBlockchain())
+		},
+	)
+}
+
+// Returns all nodes as JSON array.
+// Route: GET /nodes
+func handleGetNodes(logger *log.Logger) http.Handler {
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			logger.Println("GET /nodes")
+			_ = encode(w, r, http.StatusOK, slices.Collect(maps.Keys(nodes)))
 		},
 	)
 }
@@ -75,7 +119,38 @@ func handleAddBlock(logger *log.Logger) http.Handler {
 			}
 			block.AddBlock(data.Data)
 
-			_ = encode(w, r, 200, "Block added to the chain")
+			_ = encode(w, r, http.StatusOK, "Block added to the chain")
+		},
+	)
+}
+
+// Defines the JSON body for POST /receive-block request
+type ReceiveBlockData struct {
+	Data block.Block `json:"data"`
+}
+
+// Adds new block with the provided data to the blockchain.
+// Route: POST /receive-block
+func handleBlockReceive(logger *log.Logger) http.Handler {
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			logger.Println("POST /receive-block")
+
+			data, err := decode[ReceiveBlockData](r)
+
+			if err != nil {
+				logger.Printf("Failed to decode body: %v", err)
+				http.Error(w, "Invalid request body", http.StatusBadRequest)
+			}
+
+			err = block.AddMinedBlock(data.Data)
+
+			if err != nil {
+				_ = encode(w, r, http.StatusBadRequest, err)
+			} else {
+				_ = encode(w, r, http.StatusOK, "Block added to the chain")
+
+			}
 		},
 	)
 }
@@ -94,9 +169,9 @@ func Run(ctx context.Context, w io.Writer, args []string) error {
 	}
 
 	// Initialise port
-	port := strings.Split(os.Getenv("PORT"), ",")
-	if len(port) < 1 || port[0] == "" {
-		port = []string{"8", "0", "0", "1"}
+	port := strings.Join(strings.Split(os.Getenv("PORT"), ","), "")
+	if len(port) < 1 || port == "" {
+		port = "8001"
 		log.Println("Port setup from .env failed, using default value")
 	}
 
@@ -112,7 +187,7 @@ func Run(ctx context.Context, w io.Writer, args []string) error {
 	// HTTP server setup
 	srv := NewServer(logger)
 	httpServer := &http.Server{
-		Addr:    ":" + strings.Join(port, ""),
+		Addr:    ":" + port,
 		Handler: srv,
 	}
 
