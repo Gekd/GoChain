@@ -1,20 +1,20 @@
 # GoChain
 
-To build the container:
-docker build -t node .
+To build single container for testing:
+<br>```docker build -t node .```
 
-To run the container and use terminal to see logs:
-docker run -it --rm -p 8001:8001 my-blockchain-node
+To run that container and view logs in the same terminal:
+<br>```docker run -it --rm -p 8001:8001 node```
 
 
-To run multiple containers:
-docker compose up
+To run multiple containers together:
+<br>```docker compose up```
 
-To restart every container:
-docker compose restart
+To restart multiple containers:
+<br>```docker compose restart```
 
-To shutdown containers:
-docker compose down
+To shutdown multiple containers:
+<br>```docker compose down```
 
-If you want to destroy the volumes:
-docker compose down -v
+or if you want to destroy the volumes also:
+<br>```docker compose down -v```
