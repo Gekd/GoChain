@@ -1,6 +1,6 @@
 # GoChain
 
-To build single container for testing:
+To build single container:
 <br>```docker build -t node .```
 
 To run that container and view logs in the same terminal:
@@ -18,3 +18,6 @@ To shutdown multiple containers:
 
 or if you want to destroy the volumes also:
 <br>```docker compose down -v```
+
+To run tests:
+<br>```go test GoChain/block```

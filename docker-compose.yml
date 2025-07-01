@@ -5,17 +5,23 @@ services:
     ports:
       - "8001:8001"
     container_name: node1
+    environment:
+      - PORT=8001
 
   node2:
     build:
       context: .
     ports:
-      - "8002:8001"
+      - "8002:8002"
     container_name: node2
+    environment:
+      - PORT=8002
 
   node3:
     build:
       context: .
     ports:
-      - "8003:8001"
+      - "8003:8003"
     container_name: node3
+    environment:
+      - PORT=8003

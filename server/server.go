@@ -155,6 +155,8 @@ func handleBlockReceive(logger *log.Logger) http.Handler {
 	)
 }
 
+// Checks known port range to
+
 // Launches the HTTP server
 // Has graceful termination and runs initialization logic before startup.
 func Run(ctx context.Context, w io.Writer, args []string) error {
