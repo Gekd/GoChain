@@ -16,6 +16,7 @@ services:
     container_name: node2
     environment:
       - PORT=8002
+      - BOOTSTRAP=http://node1:8001
 
   node3:
     build:
@@ -25,3 +26,4 @@ services:
     container_name: node3
     environment:
       - PORT=8003
+      - BOOTSTRAP=http://node1:8001

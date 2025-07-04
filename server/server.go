@@ -8,12 +8,10 @@ import (
 	"io"
 	"log"
 	"maps"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,7 +20,7 @@ import (
 )
 
 // Holds known nodes port
-var nodes = make(map[int]struct{})
+var nodes = make(map[string]struct{})
 
 // NewServer initializes the HTTP multiplexer and attaches all routes.
 // It returns an http.Handler to be passed into the server.
@@ -57,23 +55,26 @@ func checkIfNodeRecognised(logger *log.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Only need port address when working on locally
-			_, port, _ := net.SplitHostPort(r.RemoteAddr)
 
-			logger.Printf("Request port: %s", port)
-			portInt, _ := strconv.Atoi(port)
-			addNode(portInt)
+			logger.Printf("Request address: %s", r.RemoteAddr)
+			addNode(r.RemoteAddr)
 			next.ServeHTTP(w, r)
 		})
 	}
 }
 
 // If not present, adds new node port to the known nodes
-func addNode(port int) {
-	_, ok := nodes[port]
+func addNode(address string) {
+	_, ok := nodes[address]
 
 	if !ok {
-		nodes[port] = struct{}{}
+		nodes[address] = struct{}{}
 	}
+}
+
+// Defines the JSON body for GET /chain response
+type GetChainData struct {
+	Data []block.Block `json:"data"`
 }
 
 // Returns entire blockchain as a JSON array.
@@ -82,9 +83,14 @@ func handleGetChain(logger *log.Logger) http.Handler {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			logger.Println("GET /chain")
-			_ = encode(w, r, http.StatusOK, block.GetBlockchain())
+			_ = encode(w, r, http.StatusOK, GetChainData{Data: block.GetBlockchain()})
 		},
 	)
+}
+
+// Defines the JSON body for GET /nodes response
+type GetNodesData struct {
+	Data []string `json:"data"`
 }
 
 // Returns all nodes as JSON array.
@@ -93,7 +99,7 @@ func handleGetNodes(logger *log.Logger) http.Handler {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			logger.Println("GET /nodes")
-			_ = encode(w, r, http.StatusOK, slices.Collect(maps.Keys(nodes)))
+			_ = encode(w, r, http.StatusOK, GetNodesData{Data: slices.Collect(maps.Keys(nodes))})
 		},
 	)
 }
@@ -155,8 +161,6 @@ func handleBlockReceive(logger *log.Logger) http.Handler {
 	)
 }
 
-// Checks known port range to
-
 // Launches the HTTP server
 // Has graceful termination and runs initialization logic before startup.
 func Run(ctx context.Context, w io.Writer, args []string) error {
@@ -180,16 +184,10 @@ func Run(ctx context.Context, w io.Writer, args []string) error {
 	// Start new logger
 	logger := log.New(w, "", log.LstdFlags)
 
-	// Blockchain initialisation
-	// TODO: Add sync between nodes logic
-	if err := block.CreateGenesisBlock(); err != nil {
-		return fmt.Errorf("Failed to generate genesis block: %w", err)
-	}
-
 	// HTTP server setup
 	srv := NewServer(logger)
 	httpServer := &http.Server{
-		Addr:    ":" + port,
+		Addr:    "0.0.0.0:" + port,
 		Handler: srv,
 	}
 
@@ -200,6 +198,24 @@ func Run(ctx context.Context, w io.Writer, args []string) error {
 			fmt.Fprintf(os.Stderr, "error listening and serving: %s\n", err)
 		}
 	}()
+
+	// Chain initialisation
+	// If bootstrap node is not specified, creates a new chain
+	// If bootstrap node exists, syncs
+	bootstrapNode := strings.Join(strings.Split(os.Getenv("BOOTSTRAP"), ","), "")
+	if len(bootstrapNode) < 1 || bootstrapNode == "" {
+		log.Println("Bootstrap setup from .env failed, creating a new network.")
+
+		if err := block.CreateGenesisBlock(); err != nil {
+			return fmt.Errorf("Failed to generate genesis block: %w", err)
+		}
+	} else {
+		if err := syncNode(bootstrapNode); err != nil {
+			return fmt.Errorf("Failed to sync with %v, %w", bootstrapNode, err)
+
+		}
+
+	}
 
 	// Graceful shutdown
 	var wg sync.WaitGroup

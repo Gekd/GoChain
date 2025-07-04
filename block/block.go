@@ -25,6 +25,13 @@ func GetBlockchain() []Block {
 	return blockchain
 }
 
+// Sets new chain if old one is smaller
+func SetBlockchain(chain []Block) {
+	if len(chain) > len(blockchain) {
+		blockchain = chain
+	}
+}
+
 // Checks if block is in correct format
 // Doesn't check PrevHash and Hash
 func IsBlockValid(block Block) (bool, error) {

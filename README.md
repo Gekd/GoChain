@@ -1,23 +1,19 @@
 # GoChain
 
-To build single container:
-<br>```docker build -t node .```
-
-To run that container and view logs in the same terminal:
-<br>```docker run -it --rm -p 8001:8001 node```
+GoChain is a study project aimed at learning decentralised networking principles. It uses a simplified Proof of Work(PoW) consensus mechanism and a gossip protocol to dynamically discover other nodes.
 
 
-To run multiple containers together:
+To run the whole chain:
 <br>```docker compose up```
 
-To restart multiple containers:
+To restart the chain:
 <br>```docker compose restart```
 
-To shutdown multiple containers:
+To shutdown the chain:
 <br>```docker compose down```
 
-or if you want to destroy the volumes also:
-<br>```docker compose down -v```
+or if you want to destroy the container and images also:
+<br>```docker compose down --rmi all -v```
 
 To run tests:
 <br>```go test GoChain/block```
