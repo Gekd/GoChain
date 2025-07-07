@@ -119,8 +119,13 @@ func CreateGenesisBlock() error {
 	return nil
 }
 
-// Greates new block and adds to the chain
-func AddBlock(data string) {
+// Adds new block to the chain
+func AddBlockToChain(block Block) {
+	blockchain = append(blockchain, block)
+}
+
+// Greates new block
+func GreateBlock(data string) Block {
 	lastBlock := blockchain[len(blockchain)-1]
 	newBlock := Block{
 		Index:    lastBlock.Index + 1,
@@ -132,8 +137,7 @@ func AddBlock(data string) {
 	}
 	// TODO: Add error handling
 	newBlock.Hash, newBlock.Nonce, _ = MineBlock(newBlock)
-	blockchain = append(blockchain, newBlock)
-
+	return newBlock
 }
 
 // Adds mined block to the chain

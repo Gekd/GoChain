@@ -63,12 +63,21 @@ func checkIfNodeRecognised(logger *log.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-// If not present, adds new node port to the known nodes
+// If not present, adds new node address to the known nodes
 func addNode(address string) {
 	_, ok := nodes[address]
 
 	if !ok {
 		nodes[address] = struct{}{}
+	}
+}
+
+// If present, removes address from known nodes
+func removeNode(address string) {
+	_, ok := nodes[address]
+
+	if ok {
+		delete(nodes, address)
 	}
 }
 
@@ -123,7 +132,11 @@ func handleAddBlock(logger *log.Logger) http.Handler {
 			if len(chain) < 1 {
 				block.CreateGenesisBlock()
 			}
-			block.AddBlock(data.Data)
+			newBlock := block.GreateBlock(data.Data)
+
+			block.AddBlockToChain(newBlock)
+
+			shareMinedBlock(logger, newBlock)
 
 			_ = encode(w, r, http.StatusOK, "Block added to the chain")
 		},
