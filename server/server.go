@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"maps"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -61,6 +62,22 @@ func checkIfNodeRecognised(logger *log.Logger) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// Defines the JSON body for GET /chain response
+type GetPingData struct {
+	Data string `json:"status"`
+}
+
+// Returns alive message.
+// Route: GET /ping
+func handlePing(logger *log.Logger) http.Handler {
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			logger.Println("GET /ping")
+			_ = encode(w, r, http.StatusOK, GetPingData{Data: "alive"})
+		},
+	)
 }
 
 // If not present, adds new node address to the known nodes
@@ -227,8 +244,22 @@ func Run(ctx context.Context, w io.Writer, args []string) error {
 			return fmt.Errorf("Failed to sync with %v, %w", bootstrapNode, err)
 
 		}
-
 	}
+
+	// Check in random intervals if nodes are alive
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				logger.Printf("Checking nodes stopped")
+
+			default:
+				checkNodes(logger)
+				sleepDuration := time.Duration(20+rand.Intn(20)) * time.Second
+				time.Sleep(sleepDuration)
+			}
+		}
+	}()
 
 	// Graceful shutdown
 	var wg sync.WaitGroup

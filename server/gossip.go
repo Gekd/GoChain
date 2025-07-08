@@ -7,7 +7,11 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
+	"math"
+	"math/rand"
 	"net/http"
+	"slices"
 )
 
 func encodeRequest[T any](v T) (io.Reader, error) {
@@ -25,6 +29,53 @@ func decodeResponse[T any](body io.ReadCloser) (T, error) {
 		return v, fmt.Errorf("decode json: %w", err)
 	}
 	return v, nil
+}
+
+// Checks nodes to make sure they are alive
+func checkNodes(logger *log.Logger) {
+	knownNodes := slices.Collect(maps.Keys(nodes))
+	checkLimit := int(math.RoundToEven(math.Sqrt(float64(len(knownNodes)))))
+
+	nodesToCheck := []string{}
+
+	for {
+		// Loop as long is needed
+		if len(nodesToCheck) == checkLimit {
+			break
+		}
+
+		randInt := rand.Intn(len(knownNodes))
+
+		if !slices.Contains(nodesToCheck, knownNodes[randInt]) {
+			nodesToCheck = append(nodesToCheck, knownNodes[randInt])
+		}
+	}
+	logger.Printf("Nodes to check: %v", nodesToCheck)
+
+	for _, s := range nodesToCheck {
+		func() {
+			resp, err := http.Get("http://" + s + "/ping")
+			if err != nil {
+				logger.Printf("Error connecting to host: %v, %v", s, err)
+				removeNode(s)
+				return
+			}
+
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				logger.Printf("Unexpected response: %v, from %v", resp.StatusCode, s)
+			}
+
+			/*data, decodeErr := decodeResponse[GetPingData](resp.Body)
+
+			if decodeErr != nil {
+				logger.Printf("Error decoding %v GET /ping: %v", s, decodeErr)
+			}*/
+
+		}()
+	}
+
 }
 
 func getNodes(bootstrapNode string) error {
@@ -112,8 +163,6 @@ func shareMinedBlock(logger *log.Logger, block block.Block) {
 		resp, err := http.Post("http://"+node+"/receive-block", "application/json", body)
 		if err != nil {
 			logger.Printf("Block sharing on node %v failed: %v\n", node, err)
-			// TODO: Currently removing nodes that fail to receive data
-			removeNode(node)
 			continue
 
 		}
