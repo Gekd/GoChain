@@ -41,7 +41,7 @@ func IsBlockValid(block Block) (bool, error) {
 	}
 
 	// Check if input block time is in correct format
-	_, err := time.Parse("2006-01-02 15:04:05", block.Time)
+	_, err := time.Parse(time.RFC3339, block.Time)
 	if err != nil {
 		return false, fmt.Errorf("Input block time is in wrong format or is empty")
 	}
@@ -103,7 +103,7 @@ func CalculateBlockHash(block Block) (string, error) {
 func CreateGenesisBlock() error {
 	genesisBlock := Block{
 		Index:    0,
-		Time:     time.Now().Format("2006-01-02 15:04:05"),
+		Time:     time.Now().Format(time.RFC3339),
 		Data:     "First block in the chain",
 		PrevHash: "",
 		Hash:     "",
@@ -129,7 +129,7 @@ func GreateBlock(data string) Block {
 	lastBlock := blockchain[len(blockchain)-1]
 	newBlock := Block{
 		Index:    lastBlock.Index + 1,
-		Time:     time.Now().Format("2006-01-02 15:04:05"),
+		Time:     time.Now().Format(time.RFC3339),
 		Data:     data,
 		PrevHash: lastBlock.Hash,
 		Hash:     "",
