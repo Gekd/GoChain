@@ -55,10 +55,11 @@ func decode[T any](r *http.Request) (T, error) {
 func checkIfNodeRecognised(logger *log.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Only need port address when working on locally
 
-			logger.Printf("Request address: %s", r.RemoteAddr)
-			addNode(r.RemoteAddr)
+			nodeAddr := r.Header.Get("Node-Addr")
+
+			logger.Printf("Request address: %s", nodeAddr)
+			addNode(nodeAddr)
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -204,11 +205,11 @@ func Run(ctx context.Context, w io.Writer, args []string) error {
 		log.Fatal("Error loading .env file")
 	}
 
-	// Initialise port
-	port := strings.Join(strings.Split(os.Getenv("PORT"), ","), "")
-	if len(port) < 1 || port == "" {
-		port = "8001"
-		log.Println("Port setup from .env failed, using default value")
+	// Initialise local address
+	localAddr := strings.Join(strings.Split(os.Getenv("LOCAL_ADDR"), ","), "")
+	if len(localAddr) < 1 || localAddr == "" {
+		localAddr = "0.0.0.0:8001"
+		log.Println("Local address setup from .env failed, using default value")
 	}
 
 	// Start new logger
@@ -217,7 +218,7 @@ func Run(ctx context.Context, w io.Writer, args []string) error {
 	// HTTP server setup
 	srv := NewServer(logger)
 	httpServer := &http.Server{
-		Addr:    "0.0.0.0:" + port,
+		Addr:    localAddr,
 		Handler: srv,
 	}
 

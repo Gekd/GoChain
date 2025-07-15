@@ -11,7 +11,9 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"os"
 	"slices"
+	"strings"
 )
 
 func encodeRequest[T any](v T) (io.Reader, error) {
@@ -33,6 +35,14 @@ func decodeResponse[T any](body io.ReadCloser) (T, error) {
 
 // Checks nodes to make sure they are alive
 func checkNodes(logger *log.Logger) {
+
+	// Initialise local address
+	localAddr := strings.Join(strings.Split(os.Getenv("LOCAL_ADDR"), ","), "")
+	if len(localAddr) < 1 || localAddr == "" {
+		localAddr = "0.0.0.0:8001"
+		log.Println("Local address setup from .env failed, using default value")
+	}
+
 	knownNodes := slices.Collect(maps.Keys(nodes))
 	checkLimit := int(math.RoundToEven(math.Sqrt(float64(len(knownNodes)))))
 
@@ -54,7 +64,22 @@ func checkNodes(logger *log.Logger) {
 
 	for _, s := range nodesToCheck {
 		func() {
-			resp, err := http.Get("http://" + s + "/ping")
+			url := "http://" + s + "/ping"
+
+			req, err := http.NewRequest("GET", url, nil)
+
+			if err != nil {
+				logger.Printf("Failed to create request for node %v: %v\n", s, err)
+				return
+			}
+
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Node-Addr", localAddr)
+
+			client := &http.Client{}
+
+			resp, err := client.Do(req)
+
 			if err != nil {
 				logger.Printf("Error connecting to host: %v, %v", s, err)
 				removeNode(s)
@@ -79,7 +104,29 @@ func checkNodes(logger *log.Logger) {
 }
 
 func getNodes(bootstrapNode string) error {
-	resp, err := http.Get("http://" + bootstrapNode + "/nodes")
+
+	// Initialise local address
+	localAddr := strings.Join(strings.Split(os.Getenv("LOCAL_ADDR"), ","), "")
+	if len(localAddr) < 1 || localAddr == "" {
+		localAddr = "0.0.0.0:8001"
+		log.Println("Local address setup from .env failed, using default value")
+	}
+
+	url := "http://" + bootstrapNode + "/nodes"
+
+	req, err := http.NewRequest("GET", url, nil)
+
+	if err != nil {
+		return fmt.Errorf("Failed to create request for node %v: %v\n", bootstrapNode, err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Node-Addr", localAddr)
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+
 	if err != nil {
 		return fmt.Errorf("Error connecting to host: %v, %v", bootstrapNode, err)
 	}
@@ -108,7 +155,29 @@ func getNodes(bootstrapNode string) error {
 }
 
 func getChain(bootstrapNode string) error {
-	resp, err := http.Get("http://" + bootstrapNode + "/chain")
+
+	// Initialise local address
+	localAddr := strings.Join(strings.Split(os.Getenv("LOCAL_ADDR"), ","), "")
+	if len(localAddr) < 1 || localAddr == "" {
+		localAddr = "0.0.0.0:8001"
+		log.Println("Local address setup from .env failed, using default value")
+	}
+
+	url := "http://" + bootstrapNode + "/chain"
+
+	req, err := http.NewRequest("GET", url, nil)
+
+	if err != nil {
+		return fmt.Errorf("Failed to create request for node %v: %v\n", bootstrapNode, err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Node-Addr", localAddr)
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+
 	if err != nil {
 		return fmt.Errorf("Error connecting to host: %v, %v", bootstrapNode, err)
 	}
@@ -152,6 +221,13 @@ func syncNode(bootstrapNode string) error {
 // Distributes mined block amongst known peers
 func shareMinedBlock(logger *log.Logger, block block.Block) {
 
+	// Initialise local address
+	localAddr := strings.Join(strings.Split(os.Getenv("LOCAL_ADDR"), ","), "")
+	if len(localAddr) < 1 || localAddr == "" {
+		localAddr = "0.0.0.0:8001"
+		log.Println("Local address setup from .env failed, using default value")
+	}
+
 	for node := range nodes {
 		body, encodeErr := encodeRequest(ReceiveBlockData{Data: block})
 
@@ -160,12 +236,28 @@ func shareMinedBlock(logger *log.Logger, block block.Block) {
 			continue
 		}
 
-		resp, err := http.Post("http://"+node+"/receive-block", "application/json", body)
+		url := "http://" + node + "/receive-block"
+
+		req, err := http.NewRequest("POST", url, body)
+
 		if err != nil {
-			logger.Printf("Block sharing on node %v failed: %v\n", node, err)
+			logger.Printf("Failed to create request for node %v: %v\n", node, err)
 			continue
 
 		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Node-Addr", localAddr)
+
+		client := &http.Client{}
+
+		resp, err := client.Do(req)
+
+		if err != nil {
+			logger.Printf("Block sharing on node %v failed: %v\n", node, err)
+			continue
+		}
+
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
